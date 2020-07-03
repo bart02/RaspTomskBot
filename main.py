@@ -22,19 +22,20 @@ TZ = datetime.timezone(datetime.timedelta(hours=7))  # timezone +7
 s = api.session()
 db = DB('db.json')
 
-@run_async
-def help(bot, update):
-    update.message.reply_text("Для поиска остановки наберите /bus <название остановки>.", parse_mode="Markdown")
-
 
 @run_async
-def start(bot, update):
+def start(update, context):
     update.message.reply_text("Приветствуем вас, для поиска остановки наберите /bus <название остановки>.",
                               parse_mode="Markdown")
 
 
 @run_async
-def bus(bot, update, args):
+def help(update, context):
+    update.message.reply_text("Для поиска остановки наберите /bus <название остановки>.", parse_mode="Markdown")
+
+
+@run_async
+def bus(update, context):
     if datetime.datetime.now(TZ).time() > datetime.time(23, 00) or datetime.datetime.now(TZ).time() < datetime.time(6, 00):
         update.message.reply_text("К сожалению, общественный транспорт сейчас не ходит.\n"
                                   "Время движения транспорта в Томске *с 6:00 до 22:30*.",
@@ -42,6 +43,7 @@ def bus(bot, update, args):
         taxi_ad(update)
         return
 
+    args = context.args
     if not args:
         update.message.reply_text("Для поиска остановки наберите /bus <название остановки>.",
                                   parse_mode="Markdown")
@@ -65,36 +67,32 @@ def bus(bot, update, args):
 
 
 @run_async
-def button(bot, update):
-    info = update.callback_query
-    if update.callback_query.data in db.db:
-        query = db.db[info.data]
-        if time() - query['time'] > 60:
-            text = 'Остановка `{}`\n\n'.format(query['name'])
-            bus = s.get_stops_arrivals(query['ids'])
-            # print(bus)
+def button(update, context):
+    query = update.callback_query
+    if query.data in db.db:
+        data = db.db[query.data]
+        if time() - data['time'] > 60:
+            text = 'Остановка `{}`\n\n'.format(data['name'])
+            bus = s.get_stops_arrivals(data['ids'])
             for num, desc in bus.items():
                 text += 'Автобус: *{}*{} следующий на `{}`\n'.format(num[0], num[1], desc['to'])
                 for bus in desc['units']:
                     text += '{} {}\n'.format(bus['time'], '♿' if bus['inv'] else '')
                 text += '\n'
 
-            query['time'] = time()
+            data['time'] = time()
 
+            db.delete(query.data)
             reply_markup = InlineKeyboardMarkup(
-                [[InlineKeyboardButton("🔄 Обновить", callback_data=db.append(query) )]])
-            bot.edit_message_text(text=text,
-                                  reply_markup=reply_markup,
-                                  chat_id=info.message.chat_id,
-                                  message_id=info.message.message_id,
-                                  parse_mode="Markdown")
-
-            db.delete(info.data)
+                [[InlineKeyboardButton("🔄 Обновить", callback_data=db.append(data) )]])
+            query.edit_message_text(text=text,
+                                    reply_markup=reply_markup,
+                                    parse_mode="Markdown")
         else:
-            bot.answer_callback_query(update.callback_query.id, text='Обновление возможно не чаще ондого раза в минуту')
+            query.answer(text='Обновление возможно не чаще ондого раза в минуту')
     else:
-        info.message.edit_reply_markup()
-        bot.answer_callback_query(info.id, text='Ошибка! Выполните поиск заново.')
+        query.edit_message_reply_markup()
+        query.answer(text='Ошибка! Выполните поиск заново.')
 
 
 def find_stop(search):
@@ -123,17 +121,14 @@ def taxi_ad(update):
                               parse_mode="Markdown")
 
 
-def error(bot, update, error):
-    logging.warning('Update "%s" caused error "%s"' % (update, error))
+updater = Updater("403179008:AAFONypWB4lrOeL7ciuFmQwf1cQ1NIsdXis", use_context=True)
 
+dp = updater.dispatcher
 
-updater = Updater("403179008:AAFONypWB4lrOeL7ciuFmQwf1cQ1NIsdXis")
-
-updater.dispatcher.add_handler(CommandHandler('start', start))
-updater.dispatcher.add_handler(CommandHandler('help', help))
-updater.dispatcher.add_handler(CommandHandler('bus', bus, pass_args=True))
-updater.dispatcher.add_handler(CallbackQueryHandler(button))
-
-updater.dispatcher.add_error_handler(error)
+dp.add_handler(CommandHandler('start', start))
+dp.add_handler(CommandHandler('help', help))
+dp.add_handler(CommandHandler('bus', bus, pass_args=True))
+dp.add_handler(CallbackQueryHandler(button))
 
 updater.start_polling()
+updater.idle()
