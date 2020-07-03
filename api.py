@@ -21,7 +21,12 @@ class session():
         if 'result' in ans:
             return ans['result']
         elif 'error' in ans:
-            raise Exception(ans['error'])
+            if ans['error']['code'] == -33100:  # new session
+                print('New session')
+                self.__init__(self.server)
+                return self.request(method, **params)
+            else:
+                raise Exception(ans['error'])
         else:
             raise Exception(ans)
 
