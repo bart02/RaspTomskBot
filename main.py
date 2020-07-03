@@ -89,7 +89,7 @@ def button(update, context):
                                     reply_markup=reply_markup,
                                     parse_mode="Markdown")
         else:
-            query.answer(text='Обновление возможно не чаще ондого раза в минуту')
+            query.answer(text='Обновление возможно не чаще одного раза в минуту')
     else:
         query.edit_message_reply_markup()
         query.answer(text='Ошибка! Выполните поиск заново.')
