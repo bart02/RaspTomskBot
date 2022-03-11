@@ -121,7 +121,7 @@ def taxi_ad(update):
                               parse_mode="Markdown")
 
 
-updater = Updater("403179008:AAFONypWB4lrOeL7ciuFmQwf1cQ1NIsdXis", use_context=True)
+updater = Updater("TOKEN", use_context=True)
 
 dp = updater.dispatcher
 
